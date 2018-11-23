@@ -26,9 +26,14 @@
 
 #include <clang-c/Index.h>
 #include <memory>
+#include <string>
+#include <fstream>
+#include <time.h>
 
 
 using std::shared_ptr;
+
+extern std::ofstream logfile;
 
 namespace YouCompleteMe {
 
@@ -69,19 +74,27 @@ bool ClangCompleter::UpdatingTranslationUnit( const std::string &filename ) {
 }
 
 
-std::vector< Diagnostic > ClangCompleter::UpdateTranslationUnit(
+ParsedInfo ClangCompleter::UpdateTranslationUnit(
   const std::string &translation_unit,
+  const std::string &original_filename,
   const std::vector< UnsavedFile > &unsaved_files,
   const std::vector< std::string > &flags ) {
   bool translation_unit_created;
+
+  time_t now;
+  logfile<<"====>Before Get Tu: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
+
   shared_ptr< TranslationUnit > unit = translation_unit_store_.GetOrCreate(
                                          translation_unit,
+                                         original_filename,
                                          unsaved_files,
                                          flags,
                                          translation_unit_created );
 
+  logfile<<"<====After Get Tu: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
+
   try {
-    return unit->Reparse( unsaved_files );
+    return unit->Reparse( unsaved_files, original_filename );
   } catch ( const ClangParseError & ) {
     // If unit->Reparse fails, then the underlying TranslationUnit object is not
     // valid anymore and needs to be destroyed and removed from the filename ->

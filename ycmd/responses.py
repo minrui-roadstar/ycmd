@@ -26,7 +26,7 @@ import os
 from ycmd.utils import ProcessIsRunning
 
 
-YCM_EXTRA_CONF_FILENAME = '.ycm_extra_conf.py'
+YCM_EXTRA_CONF_FILENAME = './.project.settings/ycm_extra_conf.py'
 
 CONFIRM_CONF_FILE_MESSAGE = ( 'Found {0}. Load? \n\n(Question can be turned '
                               'off with options, see YCM docs)' )
@@ -254,6 +254,38 @@ def BuildDiagnosticResponse( diagnostics,
     ) )
   return [ BuildDiagnosticData( diagnostic ) for diagnostic in diagnostics ]
 
+def BuildParsedInfoResponse( info,
+                             filename,
+                             max_diagnostics_to_display ):
+  diagnostics = info["diags"];
+  highlights = info["hls"];
+
+  if ( max_diagnostics_to_display and
+       len( diagnostics ) > max_diagnostics_to_display ):
+    diagnostics = diagnostics[ : max_diagnostics_to_display ]
+    location = Location( 1, 1, filename )
+    location_extent = Range( location, location )
+    diagnostics.append( Diagnostic(
+      [ location_extent ],
+      location,
+      location_extent,
+      'Maximum number of diagnostics exceeded.',
+      'ERROR'
+    ) )
+
+  parsedinfo = {}
+  parsedinfo["diagnostics"] = [ BuildDiagnosticData( diagnostic ) for diagnostic in diagnostics]
+  parsedinfo["highlights"]  = [ BuildHighlightData(highlight) for highlight in highlights]
+
+  return parsedinfo
+
+def BuildHighlightData(highlight):
+  return {
+          'text': highlight.text_,
+          'type': highlight.type_,
+          'line': highlight.line_,
+          'col' : highlight.col_,
+          }
 
 def BuildFixItResponse( fixits ):
   """Build a response from a list of FixIt (aka Refactor) objects. This response

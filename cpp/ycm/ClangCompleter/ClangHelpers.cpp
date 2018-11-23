@@ -280,4 +280,14 @@ Diagnostic BuildDiagnostic( const DiagnosticWrap &diagnostic_wrap,
   return diagnostic;
 }
 
+Highlight BuildHighlight(const std::string& name, const std::string& type,
+                         unsigned int line, unsigned int col){
+    Highlight highlight;
+    highlight.text_ = name;
+    highlight.type_ = type;
+    highlight.line_ = line;
+    highlight.col_  = col ;
+    return highlight;
+}
+
 } // namespace YouCompleteMe

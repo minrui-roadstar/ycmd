@@ -19,7 +19,7 @@
 #define CLANGCOMPLETE_H_WLKDU0ZV
 
 #include "UnsavedFile.h"
-#include "Diagnostic.h"
+#include "ParsedInfo.h"
 #include "TranslationUnitStore.h"
 #include "Documentation.h"
 
@@ -46,8 +46,9 @@ public:
 
   bool UpdatingTranslationUnit( const std::string &filename );
 
-  YCM_EXPORT std::vector< Diagnostic > UpdateTranslationUnit(
+  YCM_EXPORT ParsedInfo UpdateTranslationUnit(
     const std::string &translation_unit,
+    const std::string &original_filename,
     const std::vector< UnsavedFile > &unsaved_files,
     const std::vector< std::string > &flags );
 

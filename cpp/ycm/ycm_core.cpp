@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with ycmd.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <fstream>
+
 #include "CodePoint.h"
 #include "IdentifierCompleter.h"
 #include "PythonSupport.h"
@@ -26,6 +28,8 @@
 #  include "CompilationDatabase.h"
 #  include "CompletionData.h"
 #  include "Diagnostic.h"
+#  include "Highlight.h"
+#  include "ParsedInfo.h"
 #  include "Documentation.h"
 #  include "Location.h"
 #  include "Range.h"
@@ -33,6 +37,8 @@
 #endif // USE_CLANG_COMPLETER
 
 #include <pybind11/stl_bind.h>
+
+std::ofstream logfile;
 
 namespace py = pybind11;
 using namespace YouCompleteMe;
@@ -51,12 +57,16 @@ PYBIND11_MAKE_OPAQUE( std::vector< UnsavedFile > );
 PYBIND11_MAKE_OPAQUE( std::vector< Range > );
 PYBIND11_MAKE_OPAQUE( std::vector< CompletionData > );
 PYBIND11_MAKE_OPAQUE( std::vector< Diagnostic > );
+PYBIND11_MAKE_OPAQUE( std::vector< Highlight > );
 PYBIND11_MAKE_OPAQUE( std::vector< FixIt > );
 PYBIND11_MAKE_OPAQUE( std::vector< FixItChunk > );
 #endif // USE_CLANG_COMPLETER
 
 PYBIND11_MODULE( ycm_core, mod )
 {
+  logfile.open("/home/mr/ycmd.log");
+  logfile<<"ycmd Log:"<<std::endl;
+
   mod.def( "HasClangSupport", &HasClangSupport );
 
   mod.def( "FilterAndSortCandidates",
@@ -217,6 +227,20 @@ PYBIND11_MODULE( ycm_core, mod )
     .def_readonly( "fixits_", &Diagnostic::fixits_ );
 
   py::bind_vector< std::vector< Diagnostic > >( mod, "DiagnosticVector" );
+
+  py::class_< Highlight >( mod, "Highlight" )
+    .def( py::init<>() )
+    .def_readonly( "text_", &Highlight::text_ )
+    .def_readonly( "type_", &Highlight::type_ )
+    .def_readonly( "line_", &Highlight::line_)
+    .def_readonly( "col_", &Highlight::col_);
+
+  py::bind_vector< std::vector< Highlight > >( mod, "HighlightVector" );
+
+  py::class_< ParsedInfo >( mod, "ParsedInfo" )
+    .def( py::init<>() )
+    .def_readonly( "diags_", &ParsedInfo::diags_)
+    .def_readonly( "highlights_", &ParsedInfo::highlights_);
 
   py::class_< DocumentationData >( mod, "DocumentationData" )
     .def( py::init<>() )

@@ -19,6 +19,7 @@
 #define CLANGHELPERS_H_T3ME71LG
 
 #include "Diagnostic.h"
+#include "Highlight.h"
 #include "CompletionData.h"
 #include "UnsavedFile.h"
 
@@ -42,6 +43,9 @@ std::vector< CXUnsavedFile > ToCXUnsavedFiles(
 Diagnostic BuildDiagnostic( const DiagnosticWrap &diagnostic_wrap,
                             CXTranslationUnit translation_unit );
 
+Highlight BuildHighlight(const std::string& name, const std::string& type,
+                         unsigned int line, unsigned int col);
+						 
 } // namespace YouCompleteMe
 
 #endif /* end of include guard: CLANGHELPERS_H_T3ME71LG */

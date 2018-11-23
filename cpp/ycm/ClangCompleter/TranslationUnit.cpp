@@ -19,18 +19,23 @@
 #include "ClangHelpers.h"
 #include "CompletionData.h"
 #include "TranslationUnit.h"
+#include "TokenKindMap.h"
 #include "Utils.h"
 
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include <cstdlib>
 #include <memory>
+#include <string>
+#include <time.h>
 
 using std::unique_lock;
 using std::mutex;
 using std::try_to_lock_t;
 using std::shared_ptr;
 using std::remove_pointer;
+
+extern std::ofstream logfile;
 
 namespace YouCompleteMe {
 
@@ -76,10 +81,13 @@ TranslationUnit::TranslationUnit()
 
 TranslationUnit::TranslationUnit(
   const std::string &filename,
+  const std::string &original_filename,
   const std::vector< UnsavedFile > &unsaved_files,
   const std::vector< std::string > &flags,
-  CXIndex clang_index )
-  : clang_translation_unit_( nullptr ) {
+  CXIndex clang_index ):
+    clang_translation_unit_( nullptr ), 
+    filename_(filename),
+    original_filename_(original_filename){
   std::vector< const char * > pointer_flags;
   pointer_flags.reserve( flags.size() );
 
@@ -136,15 +144,29 @@ bool TranslationUnit::IsCurrentlyUpdating() const {
 }
 
 
-std::vector< Diagnostic > TranslationUnit::Reparse(
-  const std::vector< UnsavedFile > &unsaved_files ) {
+ParsedInfo TranslationUnit::Reparse(
+  const std::vector< UnsavedFile > &unsaved_files) {
   std::vector< CXUnsavedFile > cxunsaved_files =
     ToCXUnsavedFiles( unsaved_files );
 
   Reparse( cxunsaved_files );
 
-  unique_lock< mutex > lock( diagnostics_mutex_ );
-  return latest_diagnostics_;
+  unique_lock< mutex > lock( parsed_info_mutex_ );
+  return latest_parsed_info_;
+}
+
+
+ParsedInfo TranslationUnit::Reparse(
+  const std::vector< UnsavedFile > &unsaved_files,
+  const std::string &original_filename ) {
+
+  // record the latest original filename
+  {
+    unique_lock< mutex > lock(filename_mutex_);
+    original_filename_ = original_filename;
+  }
+
+  return Reparse(unsaved_files);
 }
 
 
@@ -439,6 +461,8 @@ void TranslationUnit::Reparse(
 // param though.
 void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
                                size_t parse_options ) {
+  time_t now;
+
   CXErrorCode failure;
   {
     unique_lock< mutex > lock( clang_access_mutex_ );
@@ -450,6 +474,14 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
     CXUnsavedFile *unsaved = unsaved_files.empty()
                              ? nullptr : &unsaved_files[ 0 ];
 
+    logfile<<"*****Parse begin: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
+    for(auto file : unsaved_files){
+        logfile<<"filename: "<<std::string(file.Filename)<<std::endl;
+    }
+    logfile<<"tu: "<<(unsigned long)clang_translation_unit_<<std::endl;
+    logfile<<"unsaved size: "<<unsaved_files.size()<<std::endl;
+    logfile<<"option: "<<parse_options<<std::endl;
+
     // This function should technically return a CXErrorCode enum but return an
     // int instead.
     failure = static_cast< CXErrorCode >(
@@ -457,6 +489,7 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
                                     unsaved_files.size(),
                                     unsaved,
                                     parse_options ) );
+    logfile<<"*****Parse Over: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
   }
 
   if ( failure != CXError_Success ) {
@@ -464,16 +497,18 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
     throw ClangParseError( failure );
   }
 
-  UpdateLatestDiagnostics();
+  UpdateLatestParsedInfo();
 }
 
-void TranslationUnit::UpdateLatestDiagnostics() {
+void TranslationUnit::UpdateLatestParsedInfo() {
   unique_lock< mutex > lock1( clang_access_mutex_ );
-  unique_lock< mutex > lock2( diagnostics_mutex_ );
+  unique_lock< mutex > lock2( parsed_info_mutex_ );
+  unique_lock< mutex > lock3( filename_mutex_ );
 
-  latest_diagnostics_.clear();
+  // diagnostic
+  latest_parsed_info_.diags_.clear();
   size_t num_diagnostics = clang_getNumDiagnostics( clang_translation_unit_ );
-  latest_diagnostics_.reserve( num_diagnostics );
+  latest_parsed_info_.diags_.reserve( num_diagnostics );
 
   for ( size_t i = 0; i < num_diagnostics; ++i ) {
     Diagnostic diagnostic =
@@ -483,10 +518,49 @@ void TranslationUnit::UpdateLatestDiagnostics() {
         clang_translation_unit_ );
 
     if ( diagnostic.kind_ != DiagnosticKind::INFORMATION ) {
-      latest_diagnostics_.push_back( diagnostic );
+      latest_parsed_info_.diags_.push_back( diagnostic );
     }
   }
+
+  // highlight
+  latest_parsed_info_.highlights_.clear();
+  unsigned int num_tokens;
+  CXToken* tokens;
+  CXSourceRange range = SourceRange();
+  clang_tokenize(clang_translation_unit_, range, &tokens, &num_tokens);
+
+  std::vector<CXCursor> cursors(num_tokens);
+  clang_annotateTokens(clang_translation_unit_, tokens, num_tokens, cursors.data());
+  for(size_t i=0; i< num_tokens; ++i){
+      CXToken token = tokens[i];
+      CXTokenKind kind{ clang_getTokenKind(token) };
+      auto loc{clang_getTokenLocation(clang_translation_unit_, token)};
+
+      CXFile file;
+      unsigned line, column, offset;
+      clang_getFileLocation(loc, &file, &line, &column, &offset);
+
+      auto cursor_kind(cursors[i].kind);
+      auto cursor_type(clang_getCursorType(cursors[i]).kind);
+
+      auto mapped(map_token_kind(kind, cursor_kind, cursor_type));
+      if(mapped.size())
+      {
+          CXString spell{ clang_getTokenSpelling(clang_translation_unit_, token) };
+          std::string text{clang_getCString(spell)};
+          clang_disposeString(spell);
+
+          //logfile<<text<<std::endl;
+
+          Highlight highlight = BuildHighlight(text, mapped, line, column);
+          latest_parsed_info_.highlights_.push_back(highlight);
+      }
+  }
+  clang_disposeTokens(clang_translation_unit_, tokens, num_tokens);
+
+  logfile<<num_tokens<<":"<<latest_parsed_info_.highlights_.size()<<std::endl;
 }
+
 
 namespace {
 
@@ -526,9 +600,9 @@ std::vector< FixIt > TranslationUnit::GetFixItsForLocationInFile(
   auto normal_filename = NormalizePath( filename );
 
   {
-    unique_lock< mutex > lock( diagnostics_mutex_ );
+    unique_lock< mutex > lock( parsed_info_mutex_ );
 
-    for ( const Diagnostic& diagnostic : latest_diagnostics_ ) {
+    for ( const Diagnostic& diagnostic : latest_parsed_info_.diags_ ) {
       auto this_filename = NormalizePath( diagnostic.location_.filename_ );
 
       if ( normal_filename != this_filename ) {
@@ -610,6 +684,26 @@ CXCursor TranslationUnit::GetCursor( const std::string &filename,
   // ASSUMES A LOCK IS ALREADY HELD ON clang_access_mutex_ AND THE TU IS VALID!
   return clang_getCursor( clang_translation_unit_,
                           GetSourceLocation( filename, line, column ) );
+}
+
+CXSourceRange TranslationUnit::SourceRange(){
+    // ge the whole range of the file
+    size_t size;
+    CXFile const file{ clang_getFile(clang_translation_unit_, original_filename_.c_str()) };
+    clang_getFileContents(clang_translation_unit_, file, &size);
+
+    CXSourceLocation const top(clang_getLocationForOffset(clang_translation_unit_, file, 0));
+    CXSourceLocation const bottom(clang_getLocationForOffset(clang_translation_unit_, file, size));
+
+    if(clang_equalLocations(top,  clang_getNullLocation()) ||
+            clang_equalLocations(bottom, clang_getNullLocation()))
+    { throw std::runtime_error{ "cannot retrieve location" }; }
+
+    CXSourceRange const range(clang_getRange(top, bottom));
+    if(clang_Range_isNull(range))
+    { throw std::runtime_error{ "cannot retrieve range" }; }
+
+    return range;
 }
 
 } // namespace YouCompleteMe

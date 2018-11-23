@@ -41,6 +41,7 @@ from ycmd.bottle_utils import SetResponseHeader
 from ycmd.completers.completer_utils import FilterAndSortCandidatesWrap
 from ycmd.utils import StartThread
 
+HIGHLIGHT_UI_FILETYPES = {'cpp', 'c'}
 
 # num bytes for the request body buffer; request.json only works if the request
 # size is less than this
@@ -55,13 +56,18 @@ wsgi_server = None
 
 @app.post( '/event_notification' )
 def EventNotification():
-  _logger.info( 'Received event notification' )
+  #_logger.info( 'Received event notification' )
   request_data = RequestWrap( request.json )
   event_name = request_data[ 'event_name' ]
-  _logger.debug( 'Event name: %s', event_name )
+  #_logger.debug( 'Event name: %s', event_name )
 
   event_handler = 'On' + event_name
   getattr( _server_state.GetGeneralCompleter(), event_handler )( request_data )
+
+  #_logger.debug( 'Event file: %s', request_data['filepath'])
+
+  #_logger.debug( 'Event %s Start with %s', event_handler, request_data['filepath'])
+  #_logger.debug( 'Filetype: %s' , request_data['filetypes'])
 
   filetypes = request_data[ 'filetypes' ]
   response_data = None
@@ -69,9 +75,18 @@ def EventNotification():
     response_data = getattr( _server_state.GetFiletypeCompleter( filetypes ),
                              event_handler )( request_data )
 
+  _logger.debug( 'Event %s Done with %s', event_handler, request_data['filepath'])
+  #_logger.debug( 'response_data size: %d', len(response_data))
+
+  # if we got reponse_data, just return it
   if response_data:
     return _JsonResponse( response_data )
-  return _JsonResponse( {} )
+
+  # if we do not get the response data, return type depends on filetypes
+  if filetypes[0] in HIGHLIGHT_UI_FILETYPES:
+    return _JsonResponse( {'diagnostics':[], 'highlights' :[]} )
+  else:
+    return _JsonResponse( {} )
 
 
 @app.post( '/run_completer_command' )

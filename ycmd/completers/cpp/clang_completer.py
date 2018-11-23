@@ -379,20 +379,29 @@ class ClangCompleter( Completer ):
 
 
   def OnFileReadyToParse( self, request_data ):
+    original_filename = request_data['filepath']
     flags, filename = self._FlagsForRequest( request_data )
     if not flags:
       raise ValueError( NO_COMPILE_FLAGS_MESSAGE )
 
-    with self._files_being_compiled.GetExclusive( filename ):
-      diagnostics = self._completer.UpdateTranslationUnit(
-        ToCppStringCompatible( filename ),
+    self._logger.debug("{0}--->Translate Begin".format(original_filename))
+
+    with self._files_being_compiled.GetExclusive( original_filename):
+      parsedinfo = self._completer.UpdateTranslationUnit(
+        ToCppStringCompatible( original_filename ),
+        ToCppStringCompatible( original_filename),
         self.GetUnsavedFilesVector( request_data ),
         flags )
 
-    diagnostics = _FilterDiagnostics( diagnostics )
+    diagnostics = _FilterDiagnostics( parsedinfo.diags_)
     self._diagnostic_store = DiagnosticsToDiagStructure( diagnostics )
-    return responses.BuildDiagnosticResponse( diagnostics,
-                                              request_data[ 'filepath' ],
+    highlights = parsedinfo.highlights_
+    info ={}
+    info["diags"] = diagnostics
+    info["hls"] = highlights
+    self._logger.debug("{0}--->Translate Done({1})".format(original_filename, len(highlights)))
+    return responses.BuildParsedInfoResponse( info,
+                                              original_filename, 
                                               self.max_diagnostics_to_display )
 
 

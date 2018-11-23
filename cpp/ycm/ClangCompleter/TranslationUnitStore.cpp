@@ -53,18 +53,27 @@ TranslationUnitStore::~TranslationUnitStore() {
   RemoveAll();
 }
 
-
 shared_ptr< TranslationUnit > TranslationUnitStore::GetOrCreate(
   const std::string &filename,
   const std::vector< UnsavedFile > &unsaved_files,
   const std::vector< std::string > &flags ) {
   bool dont_care;
-  return GetOrCreate( filename, unsaved_files, flags, dont_care );
+  return GetOrCreate( filename, filename, unsaved_files, flags, dont_care );
+}
+
+shared_ptr< TranslationUnit > TranslationUnitStore::GetOrCreate(
+  const std::string &filename,
+  const std::string &original_filename,
+  const std::vector< UnsavedFile > &unsaved_files,
+  const std::vector< std::string > &flags ) {
+  bool dont_care;
+  return GetOrCreate( filename, original_filename, unsaved_files, flags, dont_care );
 }
 
 
 shared_ptr< TranslationUnit > TranslationUnitStore::GetOrCreate(
   const std::string &filename,
+  const std::string &original_filename,
   const std::vector< UnsavedFile > &unsaved_files,
   const std::vector< std::string > &flags,
   bool &translation_unit_created ) {
@@ -94,6 +103,7 @@ shared_ptr< TranslationUnit > TranslationUnitStore::GetOrCreate(
 
   try {
     unit = make_shared< TranslationUnit >( filename,
+                                           original_filename,
                                            unsaved_files,
                                            flags,
                                            clang_index_ );

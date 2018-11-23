@@ -22,6 +22,7 @@
 #include "Diagnostic.h"
 #include "Location.h"
 #include "Documentation.h"
+#include "ParsedInfo.h"
 
 #include <clang-c/Index.h>
 
@@ -45,6 +46,7 @@ public:
 
   YCM_EXPORT TranslationUnit(
     const std::string &filename,
+    const std::string &original_filename,
     const std::vector< UnsavedFile > &unsaved_files,
     const std::vector< std::string > &flags,
     CXIndex clang_index );
@@ -55,8 +57,12 @@ public:
 
   YCM_EXPORT bool IsCurrentlyUpdating() const;
 
-  YCM_EXPORT std::vector< Diagnostic > Reparse(
-    const std::vector< UnsavedFile > &unsaved_files );
+  YCM_EXPORT ParsedInfo Reparse(
+    const std::vector< UnsavedFile > &unsaved_files);
+
+  YCM_EXPORT ParsedInfo Reparse(
+    const std::vector< UnsavedFile > &unsaved_files,
+    const std::string& original_filename);
 
   YCM_EXPORT std::vector< CompletionData > CandidatesForLocation(
     const std::string &filename,
@@ -119,7 +125,7 @@ private:
   void Reparse( std::vector< CXUnsavedFile > &unsaved_files,
                 size_t parse_options );
 
-  void UpdateLatestDiagnostics();
+  void UpdateLatestParsedInfo();
 
   // These four methods must be called under the clang_access_mutex_ lock.
   CXSourceLocation GetSourceLocation( const std::string& filename,
@@ -132,12 +138,17 @@ private:
 
   Location GetDefinitionLocationForCursor( CXCursor cursor );
 
+  CXSourceRange SourceRange();
+
   /////////////////////////////
   // PRIVATE MEMBER VARIABLES
   /////////////////////////////
+  std::string filename_;
+  std::string original_filename_;
+  std::mutex filename_mutex_;
 
-  std::mutex diagnostics_mutex_;
-  std::vector< Diagnostic > latest_diagnostics_;
+  std::mutex parsed_info_mutex_;
+  ParsedInfo latest_parsed_info_;
 
   mutable std::mutex clang_access_mutex_;
   CXTranslationUnit clang_translation_unit_;
