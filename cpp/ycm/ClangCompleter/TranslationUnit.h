@@ -46,7 +46,6 @@ public:
 
   YCM_EXPORT TranslationUnit(
     const std::string &filename,
-    const std::string &original_filename,
     const std::vector< UnsavedFile > &unsaved_files,
     const std::vector< std::string > &flags,
     CXIndex clang_index );
@@ -59,10 +58,6 @@ public:
 
   YCM_EXPORT ParsedInfo Reparse(
     const std::vector< UnsavedFile > &unsaved_files);
-
-  YCM_EXPORT ParsedInfo Reparse(
-    const std::vector< UnsavedFile > &unsaved_files,
-    const std::string& original_filename);
 
   YCM_EXPORT std::vector< CompletionData > CandidatesForLocation(
     const std::string &filename,
@@ -144,8 +139,6 @@ private:
   // PRIVATE MEMBER VARIABLES
   /////////////////////////////
   std::string filename_;
-  std::string original_filename_;
-  std::mutex filename_mutex_;
 
   std::mutex parsed_info_mutex_;
   ParsedInfo latest_parsed_info_;

@@ -47,13 +47,6 @@ public:
 
   std::shared_ptr< TranslationUnit > GetOrCreate(
     const std::string &filename,
-    const std::string &original_filename,
-    const std::vector< UnsavedFile > &unsaved_files,
-    const std::vector< std::string > &flags );
-
-  std::shared_ptr< TranslationUnit > GetOrCreate(
-    const std::string &filename,
-    const std::string &original_filename,
     const std::vector< UnsavedFile > &unsaved_files,
     const std::vector< std::string > &flags,
     bool &translation_unit_created );

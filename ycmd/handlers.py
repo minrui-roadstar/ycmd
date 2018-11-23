@@ -56,27 +56,19 @@ wsgi_server = None
 
 @app.post( '/event_notification' )
 def EventNotification():
-  #_logger.info( 'Received event notification' )
+  _logger.info( 'Received event notification' )
   request_data = RequestWrap( request.json )
   event_name = request_data[ 'event_name' ]
-  #_logger.debug( 'Event name: %s', event_name )
+  _logger.debug( 'Event name: %s', event_name )
 
   event_handler = 'On' + event_name
   getattr( _server_state.GetGeneralCompleter(), event_handler )( request_data )
-
-  #_logger.debug( 'Event file: %s', request_data['filepath'])
-
-  #_logger.debug( 'Event %s Start with %s', event_handler, request_data['filepath'])
-  #_logger.debug( 'Filetype: %s' , request_data['filetypes'])
 
   filetypes = request_data[ 'filetypes' ]
   response_data = None
   if _server_state.FiletypeCompletionUsable( filetypes ):
     response_data = getattr( _server_state.GetFiletypeCompleter( filetypes ),
                              event_handler )( request_data )
-
-  _logger.debug( 'Event %s Done with %s', event_handler, request_data['filepath'])
-  #_logger.debug( 'response_data size: %d', len(response_data))
 
   # if we got reponse_data, just return it
   if response_data:

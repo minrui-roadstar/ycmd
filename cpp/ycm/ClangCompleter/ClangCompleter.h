@@ -48,7 +48,6 @@ public:
 
   YCM_EXPORT ParsedInfo UpdateTranslationUnit(
     const std::string &translation_unit,
-    const std::string &original_filename,
     const std::vector< UnsavedFile > &unsaved_files,
     const std::vector< std::string > &flags );
 

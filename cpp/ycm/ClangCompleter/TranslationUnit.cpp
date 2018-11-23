@@ -81,13 +81,11 @@ TranslationUnit::TranslationUnit()
 
 TranslationUnit::TranslationUnit(
   const std::string &filename,
-  const std::string &original_filename,
   const std::vector< UnsavedFile > &unsaved_files,
   const std::vector< std::string > &flags,
   CXIndex clang_index ):
     clang_translation_unit_( nullptr ), 
-    filename_(filename),
-    original_filename_(original_filename){
+    filename_(filename){
   std::vector< const char * > pointer_flags;
   pointer_flags.reserve( flags.size() );
 
@@ -143,7 +141,6 @@ bool TranslationUnit::IsCurrentlyUpdating() const {
   return !lock.owns_lock();
 }
 
-
 ParsedInfo TranslationUnit::Reparse(
   const std::vector< UnsavedFile > &unsaved_files) {
   std::vector< CXUnsavedFile > cxunsaved_files =
@@ -154,21 +151,6 @@ ParsedInfo TranslationUnit::Reparse(
   unique_lock< mutex > lock( parsed_info_mutex_ );
   return latest_parsed_info_;
 }
-
-
-ParsedInfo TranslationUnit::Reparse(
-  const std::vector< UnsavedFile > &unsaved_files,
-  const std::string &original_filename ) {
-
-  // record the latest original filename
-  {
-    unique_lock< mutex > lock(filename_mutex_);
-    original_filename_ = original_filename;
-  }
-
-  return Reparse(unsaved_files);
-}
-
 
 std::vector< CompletionData > TranslationUnit::CandidatesForLocation(
   const std::string &filename,
@@ -503,7 +485,6 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
 void TranslationUnit::UpdateLatestParsedInfo() {
   unique_lock< mutex > lock1( clang_access_mutex_ );
   unique_lock< mutex > lock2( parsed_info_mutex_ );
-  unique_lock< mutex > lock3( filename_mutex_ );
 
   // diagnostic
   latest_parsed_info_.diags_.clear();
@@ -689,7 +670,7 @@ CXCursor TranslationUnit::GetCursor( const std::string &filename,
 CXSourceRange TranslationUnit::SourceRange(){
     // ge the whole range of the file
     size_t size;
-    CXFile const file{ clang_getFile(clang_translation_unit_, original_filename_.c_str()) };
+    CXFile const file{ clang_getFile(clang_translation_unit_, filename_.c_str()) };
     clang_getFileContents(clang_translation_unit_, file, &size);
 
     CXSourceLocation const top(clang_getLocationForOffset(clang_translation_unit_, file, 0));

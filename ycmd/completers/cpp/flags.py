@@ -149,8 +149,9 @@ class Flags( object ):
                                           results,
                                           add_extra_clang_flags,
                                           client_data ):
-    if 'override_filename' in results:
-      filename = results[ 'override_filename' ] or filename
+    # disable filename override, cause for .h files, compile would be very slow
+    #if 'override_filename' in results:
+    #  filename = results[ 'override_filename' ] or filename
 
     flags = _ExtractFlagsList( results )
     if not flags:
