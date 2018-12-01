@@ -28,6 +28,7 @@
 #include <memory>
 #include <string>
 #include <time.h>
+#include <fstream>
 
 using std::unique_lock;
 using std::mutex;
@@ -35,7 +36,7 @@ using std::try_to_lock_t;
 using std::shared_ptr;
 using std::remove_pointer;
 
-extern std::ofstream logfile;
+extern std::ofstream logger;
 
 namespace YouCompleteMe {
 
@@ -456,14 +457,6 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
     CXUnsavedFile *unsaved = unsaved_files.empty()
                              ? nullptr : &unsaved_files[ 0 ];
 
-    logfile<<"*****Parse begin: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
-    for(auto file : unsaved_files){
-        logfile<<"filename: "<<std::string(file.Filename)<<std::endl;
-    }
-    logfile<<"tu: "<<(unsigned long)clang_translation_unit_<<std::endl;
-    logfile<<"unsaved size: "<<unsaved_files.size()<<std::endl;
-    logfile<<"option: "<<parse_options<<std::endl;
-
     // This function should technically return a CXErrorCode enum but return an
     // int instead.
     failure = static_cast< CXErrorCode >(
@@ -471,7 +464,6 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
                                     unsaved_files.size(),
                                     unsaved,
                                     parse_options ) );
-    logfile<<"*****Parse Over: "<<std::string(ctime(&(now=time(NULL))))<<std::endl;
   }
 
   if ( failure != CXError_Success ) {
@@ -524,22 +516,24 @@ void TranslationUnit::UpdateLatestParsedInfo() {
       auto cursor_kind(cursors[i].kind);
       auto cursor_type(clang_getCursorType(cursors[i]).kind);
 
+      CXString spell{ clang_getTokenSpelling(clang_translation_unit_, token) };
+      std::string text{clang_getCString(spell)};
+      clang_disposeString(spell);
+
       auto mapped(map_token_kind(kind, cursor_kind, cursor_type));
       if(mapped.size())
       {
-          CXString spell{ clang_getTokenSpelling(clang_translation_unit_, token) };
-          std::string text{clang_getCString(spell)};
-          clang_disposeString(spell);
-
-          //logfile<<text<<std::endl;
-
           Highlight highlight = BuildHighlight(text, mapped, line, column);
           latest_parsed_info_.highlights_.push_back(highlight);
       }
+
+      logger<<text<<" : "<<mapped<<", "
+                         <<std::to_string(cursor_kind)<<", "
+                         <<std::to_string(cursor_type)<<", "
+                         <<line<<", "<<column<<std::endl;
+
   }
   clang_disposeTokens(clang_translation_unit_, tokens, num_tokens);
-
-  logfile<<num_tokens<<":"<<latest_parsed_info_.highlights_.size()<<std::endl;
 }
 
 

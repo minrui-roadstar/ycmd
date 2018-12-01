@@ -30,6 +30,7 @@ import textwrap
 import xml.etree.ElementTree
 from xml.etree.ElementTree import ParseError as XmlParseError
 
+import sys
 import ycm_core
 from ycmd import responses
 from ycmd.utils import ( PathLeftSplit,

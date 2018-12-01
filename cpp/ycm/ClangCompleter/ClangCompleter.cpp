@@ -27,13 +27,13 @@
 #include <clang-c/Index.h>
 #include <memory>
 #include <string>
-#include <fstream>
+#include <iostream>
 #include <time.h>
+#include <stdio.h>
 
 
 using std::shared_ptr;
 
-extern std::ofstream logfile;
 
 namespace YouCompleteMe {
 

@@ -15,8 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with ycmd.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <fstream>
-
 #include "CodePoint.h"
 #include "IdentifierCompleter.h"
 #include "PythonSupport.h"
@@ -38,7 +36,7 @@
 
 #include <pybind11/stl_bind.h>
 
-std::ofstream logfile;
+#include <fstream>
 
 namespace py = pybind11;
 using namespace YouCompleteMe;
@@ -50,6 +48,8 @@ bool HasClangSupport() {
   return false;
 #endif // USE_CLANG_COMPLETER
 }
+
+std::ofstream logger;
 
 PYBIND11_MAKE_OPAQUE( std::vector< std::string > );
 #ifdef USE_CLANG_COMPLETER
@@ -64,8 +64,7 @@ PYBIND11_MAKE_OPAQUE( std::vector< FixItChunk > );
 
 PYBIND11_MODULE( ycm_core, mod )
 {
-  logfile.open("/home/mr/ycmd.log");
-  logfile<<"ycmd Log:"<<std::endl;
+  logger.open("/home/mr/ycmd.log");
 
   mod.def( "HasClangSupport", &HasClangSupport );
 

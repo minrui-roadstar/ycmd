@@ -149,9 +149,8 @@ class Flags( object ):
                                           results,
                                           add_extra_clang_flags,
                                           client_data ):
-    # disable filename override, cause for .h files, compile would be very slow
-    #if 'override_filename' in results:
-    #  filename = results[ 'override_filename' ] or filename
+    if 'override_filename' in results:
+      filename = results[ 'override_filename' ] or filename
 
     flags = _ExtractFlagsList( results )
     if not flags:
@@ -200,6 +199,7 @@ class Flags( object ):
     self.flags_for_file.clear()
     self.compilation_database_dir_map.clear()
     self.file_directory_heuristic_map.clear()
+    extra_conf_store.Reset()
 
 
   def _GetFlagsFromCompilationDatabase( self, database, file_name ):

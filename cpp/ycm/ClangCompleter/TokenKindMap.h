@@ -72,6 +72,9 @@ namespace YouCompleteMe
             case CXType_Auto:
                 return "Variable";
 #endif
+            case CXType_Elaborated:
+                return "Variable";
+
             default:
                 return "";
                 //return "Error1 " + std::to_string(kind);
